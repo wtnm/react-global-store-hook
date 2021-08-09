@@ -73,10 +73,10 @@ export default function (initialState: any = {}) {
     return [req, partState]
   }
 
-  const useStore = (key: string | string[] | { [key: string]: string | string[] }) => {
-    let [partState, setPartState] = useState(makeStateParts(key));
-    [key, partState] = usePrevReqAndState(key, partState);
-    useEffect(() => subscribe(key, setPartState), [key, state]);
+  const useSubscribe = (req: string | string[] | { [key: string]: string | string[] }) => {
+    let [partState, setPartState] = useState(makeStateParts(req));
+    [req, partState] = usePrevReqAndState(req, partState);
+    useEffect(() => subscribe(req, setPartState), [req, state]);
     return partState
   };
 
@@ -95,5 +95,5 @@ export default function (initialState: any = {}) {
     return () => props.forEach(p => listeners[getStoreKey(isObject(req) ? req[p] : req)].delete(subsObject));
   };
 
-  return {useStore, subscribe, set: setValue, get: getInState, keys: () => state.keys()};
+  return {useSubscribe, subscribe, set: setValue, get: getInState, keys: () => state.keys()};
 }

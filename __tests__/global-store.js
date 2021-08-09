@@ -13,7 +13,7 @@ const {act} = require("react-dom/test-utils");
 
 describe('test global store', function () {
   const initialState = {one: 1, two: 2};
-  let {subscribe, get, set, useStore} = createStore(initialState);
+  let {subscribe, get, set, useSubscribe} = createStore(initialState);
 
   let container = null;
   container = document.createElement("div");
@@ -38,8 +38,8 @@ describe('test global store', function () {
     unsub();
   })
 
-  it('tests useStore', async () => {
-    const TestGlobalState = ({name}) => useStore(name);
+  it('tests useSubscribe', async () => {
+    const TestGlobalState = ({name}) => useSubscribe(name);
 
     act(() => { render(React.createElement(TestGlobalState, {name: 'one'}), container); });
     expect(container.textContent).to.be.equal("11");
@@ -48,8 +48,8 @@ describe('test global store', function () {
     expect(container.textContent).to.be.equal("10");
   })
 
-  it('tests useStore subscription change', async () => {
-    const TestGlobalState = ({name}) => useStore(name);
+  it('tests useSubscribe subscription change', async () => {
+    const TestGlobalState = ({name}) => useSubscribe(name);
 
     act(() => { render(React.createElement(TestGlobalState, {name: 'one'}), container); });
     expect(container.textContent).to.be.equal("10");
@@ -60,7 +60,7 @@ describe('test global store', function () {
 
   it('tests useSubscribe', async () => {
     const TestGlobalState = ({req}) => {
-      let val = useStore(req);
+      let val = useSubscribe(req);
       return JSON.stringify(val);
     }
     act(() => { render(React.createElement(TestGlobalState, {req: {one: 'one', two: 'two'}}), container); });
@@ -75,7 +75,7 @@ describe('test global store', function () {
 
   it('tests useSubscribe with path', async () => {
     const TestGlobalState = ({req}) => {
-      let val = useStore(req);
+      let val = useSubscribe(req);
       return JSON.stringify(val);
     }
     act(() => { render(React.createElement(TestGlobalState, {req: {four: ['four', 'five'], two: ['two']}}), container); });
@@ -90,14 +90,14 @@ describe('test global store', function () {
     expect(container.textContent).to.be.equal('{"seven":7}');
   })
 
-  let {set: setGS, useStore: useGS} = createStore(initialState);
+  let {set: setGS, useSubscribe: useGS} = createStore(initialState);
 
   it('tests useSubscribe with different stores', async () => {
     const TestGlobalState = ({useHook, req}) => {
       let val = useHook(req);
       return JSON.stringify(val);
     }
-    act(() => { render(React.createElement(TestGlobalState, {useHook: useStore, req: 'two'}), container); });
+    act(() => { render(React.createElement(TestGlobalState, {useHook: useSubscribe, req: 'two'}), container); });
     expect(container.textContent).to.be.equal('22');
 
     act(() => { render(React.createElement(TestGlobalState, {useHook: useGS, req: 'two'}), container); });
@@ -108,7 +108,7 @@ describe('test global store', function () {
     await sleep(5);
     expect(container.textContent).to.be.equal('21');
 
-    act(() => { render(React.createElement(TestGlobalState, {useHook: useStore, req: 'two'}), container); });
+    act(() => { render(React.createElement(TestGlobalState, {useHook: useSubscribe, req: 'two'}), container); });
     expect(container.textContent).to.be.equal('222');
   })
 })
