@@ -41,8 +41,8 @@ export default class GlobalStore {
 
   private getStoreKey = (v) => isArray(v) ? v[0] : v;
 
-  private makeStateParts = (req) => (isString(req) || isArray(req)) ? this.getValue(req) : (!req ? req :
-    Object.keys(req).reduce((r, prop) => (r[prop] = this.getValue(req[prop])) && r || r, {}));
+  private makeStateParts = (req) => (isString(req) || isArray(req)) ? this.get(req) : (!req ? req :
+    Object.keys(req).reduce((r, prop) => (r[prop] = this.get(req[prop])) && r || r, {}));
 
   private usePrevReqAndState = (req, partState) => {
     const {current} = useRef({});
@@ -78,13 +78,13 @@ export default class GlobalStore {
     return () => props.forEach(p => this.listeners[this.getStoreKey(isObject(req) ? req[p] : req)].delete(subsObject));
   };
 
-  setValue = (key, value) => {
+  set = (key, value) => {
     if (isFunction(value)) value = value(this.state.get(key));
     if (isPromise(value)) value.then((val) => this.setStateAndNotifier(key, val)).catch((e) => {throw new Error(e)})
     else this.setStateAndNotifier(key, value)
   }
 
-  getValue = (keys) => {
+  get = (keys) => {
     if (isString(keys)) return this.state.get(keys);
     if (isArray(keys)) {
       if (keys.length === 0) return this.previousChanges;

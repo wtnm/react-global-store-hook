@@ -14,7 +14,7 @@ const {act} = require("react-dom/test-utils");
 describe('test global store', function () {
   const initialState = {one: 1, two: 2};
   let store = new GlobalStore(initialState);
-  let {subscribe, getValue, setValue, useSubscribe} = store;
+  let {subscribe, get, set, useSubscribe} = store;
 
   let container = null;
   container = document.createElement("div");
@@ -22,8 +22,8 @@ describe('test global store', function () {
 
 
   it('tests initial state', () => {
-    expect(getValue('one')).to.be.equal(initialState.one);
-    expect(getValue('two')).to.be.equal(initialState.two);
+    expect(get('one')).to.be.equal(initialState.one);
+    expect(get('two')).to.be.equal(initialState.two);
   })
 
   it('tests subscribe', async () => {
@@ -33,8 +33,8 @@ describe('test global store', function () {
       expect(prev.three).to.be.equal(undefined);
       expect(next.three).to.be.equal(3);
     })
-    setValue('one', 11);
-    setValue('three', 3);
+    set('one', 11);
+    set('three', 3);
     await sleep(5);
     unsub();
   })
@@ -44,7 +44,7 @@ describe('test global store', function () {
 
     act(() => { render(React.createElement(TestGlobalState, {name: 'one'}), container); });
     expect(container.textContent).to.be.equal("11");
-    setValue('one', 10);
+    set('one', 10);
     await sleep(5);
     expect(container.textContent).to.be.equal("10");
   })
@@ -66,8 +66,8 @@ describe('test global store', function () {
     }
     act(() => { render(React.createElement(TestGlobalState, {req: {one: 'one', two: 'two'}}), container); });
     expect(container.textContent).to.be.equal('{"one":10,"two":2}');
-    setValue('one', 1);
-    setValue('two', 22);
+    set('one', 1);
+    set('two', 22);
     await sleep(5);
     expect(container.textContent).to.be.equal('{"one":1,"two":22}');
     act(() => { render(React.createElement(TestGlobalState, {req: {one: 'one', three: 'three'}}), container); });
@@ -81,8 +81,8 @@ describe('test global store', function () {
     }
     act(() => { render(React.createElement(TestGlobalState, {req: {four: ['four', 'five'], two: ['two']}}), container); });
     expect(container.textContent).to.be.equal('{"two":22}');
-    setValue('four', {five: 5});
-    setValue('six', {seven: 7});
+    set('four', {five: 5});
+    set('six', {seven: 7});
     await sleep(5);
     expect(container.textContent).to.be.equal('{"four":5,"two":22}');
     act(() => { render(React.createElement(TestGlobalState, {req: ['six', 'seven']}), container); });
@@ -104,8 +104,8 @@ describe('test global store', function () {
     act(() => { render(React.createElement(TestGlobalState, {store: store2, req: 'two'}), container); });
     expect(container.textContent).to.be.equal('2');
 
-    setValue('two', 222);
-    store2.setValue('two', 21);
+    set('two', 222);
+    store2.set('two', 21);
     await sleep(5);
     expect(container.textContent).to.be.equal('21');
 
