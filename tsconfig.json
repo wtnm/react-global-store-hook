@@ -7,6 +7,7 @@
     "target": "es6",
     "moduleResolution": "node",
     "sourceMap": true,
+    "declaration": true,
     "pretty": true,
     "experimentalDecorators": false,
     "noImplicitAny": false,
