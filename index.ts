@@ -1,5 +1,5 @@
-import {useEffect, useRef, useState} from 'react';
-import {isEqual, isPromise, isFunction, isString, isObject, isArray, isMergeable, isUndefined} from 'is-fns';
+import { useEffect, useRef, useState } from 'react';
+import { isEqual, isPromise, isFunction, isString, isObject, isArray, isMergeable, isUndefined } from 'is-fns';
 
 export default class GlobalStore {
   private readonly state: Map<string, any>
@@ -19,10 +19,13 @@ export default class GlobalStore {
     Object.keys(this.previousChanges[0]).forEach(key => {
       if (this.listeners[key])
         this.listeners[key].forEach((listener) => {
-          const {req, subscriber, previous} = listener;
+          const { req, subscriber, previous, wrapFunctions } = listener;
           if (!this.notified.get(subscriber)) {
             let result = this.makeStateParts(req);
-            if (!isEqual(previous, result)) subscriber(listener.previous = result);
+            if (!isEqual(previous, result)) {
+              listener.previous = result
+              subscriber((wrapFunctions && isFunction(result)) ? () => result : result);
+            }
             this.notified.set(subscriber, true);
           }
         });
@@ -58,8 +61,8 @@ export default class GlobalStore {
     Object.keys(req).reduce((r, prop) => (r[prop] = this.getValue(req[prop])) && r || r, {}));
 
   private usePrevReqAndState = (req, partState) => {
-    const {current} = useRef({});
-    if (!isEqual(req, current.req, {deep: true}) || current.state !== this.state) { // new subscription were made
+    const { current } = useRef({});
+    if (!isEqual(req, current.req, { deep: true }) || current.state !== this.state) { // new subscription were made
       current.state = this.state;
       current.req = req;
       current.check = partState;   // save old partState to check
@@ -75,14 +78,14 @@ export default class GlobalStore {
   useSubscribe = (req: false | string | string[] | { [key: string]: string | string[] }) => {
     let [partState, setPartState] = useState(this.makeStateParts(req));
     [req, partState] = this.usePrevReqAndState(req, partState);
-    useEffect(() => this.subscribe(req, setPartState), [req, this.state]);
+    useEffect(() => this._subscribe(req, setPartState, true), [req, this.state]);
     return partState
   };
 
-  subscribe = (req, subscriber) => {
+  private _subscribe = (req, subscriber, wrapFunctions = false) => {
     if (isArray(req) && !req.length) return this.subscribers.add(subscriber) && (() => this.subscribers.delete(subscriber))
     if (req === true || !req && req !== "") return req;
-    const subsObject = {req, subscriber};
+    const subsObject = { req, subscriber, wrapFunctions };
     const props = isObject(req) ? Object.keys(req) : [""];
     props.forEach(prop => {
       const key = this.getStoreKey(isObject(req) ? req[prop] : req);
@@ -98,6 +101,8 @@ export default class GlobalStore {
     else this.setStateAndNotifier(key, value)
   }
 
+  subscribe = (req, subscriber) => this._subscribe(req, subscriber);
+  
   get = (req) => this.makeStateParts(req)
 
   keys = () => this.state.keys()
