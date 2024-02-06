@@ -26,13 +26,13 @@ describe('test global store', function () {
   });
 
   it('tests subscribe', async () => {
-    const unsub = subscribe([], ([next, prev]) => {
+    const unsub = subscribe([], ({ prev, current }) => {
       expect(prev.one).to.be.equal(1);
-      expect(next.one).to.be.equal(11);
+      expect(current.one).to.be.equal(11);
       expect(prev.three).to.be.equal(undefined);
-      expect(next.three).to.be.equal(3);
+      expect(current.three).to.be.equal(3);
     });
-    const unsub2 = subscribe("one", (value) => {
+    const unsub2 = subscribe('one', (value) => {
       expect(value).to.be.equal(11);
     });
     set('one', 11);

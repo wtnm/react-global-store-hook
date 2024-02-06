@@ -16,6 +16,7 @@ type Listener = {
   previous?: any;
   wrapFunctions: boolean;
 };
+
 export default class GlobalStore {
   private readonly state: Map<string, any>;
   private listeners: { [key: string]: Set<Listener> } = {};
@@ -23,8 +24,8 @@ export default class GlobalStore {
   private notify: null | ReturnType<typeof setTimeout> = null;
   private notified = new Map();
   // nextChanges is using to accumulate changes, and then notify listeners in one batch
-  private nextChanges: [{ [key: string]: any }, { [key: string]: any }] = [{}, {}]; // [nextValues, currentValues]
-  private currentChanges: [{ [key: string]: any }, { [key: string]: any }] = [{}, {}];
+  private nextChanges: { prev: { [key: string]: any }; current: { [key: string]: any } } = { prev: {}, current: {} };
+  private currentChanges: { prev: { [key: string]: any }; current: { [key: string]: any } } = { prev: {}, current: {} };
 
   constructor(initialState: { [key: string]: any } = {}) {
     this.state = new Map(Object.entries(initialState));
@@ -33,8 +34,8 @@ export default class GlobalStore {
   private notifyListeners = () => {
     this.notify = null;
     this.currentChanges = this.nextChanges;
-    this.nextChanges = [{}, {}];
-    Object.keys(this.currentChanges[0]).forEach((key) => {
+    this.nextChanges = { prev: {}, current: {} };
+    Object.keys(this.currentChanges.current).forEach((key) => {
       if (this.listeners[key])
         this.listeners[key].forEach((listener) => {
           const { paths, subscriber, previous, wrapFunctions } = listener;
@@ -54,8 +55,8 @@ export default class GlobalStore {
 
   private setStateAndNotify = (key: string, value: any) => {
     if (Object.is(this.state.get(key), value)) return;
-    if (!(key in this.nextChanges[1])) this.nextChanges[1][key] = this.state.get(key);
-    this.nextChanges[0][key] = value;
+    if (!(key in this.nextChanges.prev)) this.nextChanges.prev[key] = this.state.get(key);
+    this.nextChanges.current[key] = value;
     if (isUndefined(value)) {
       this.state.delete(key);
     } else {
@@ -140,7 +141,6 @@ export default class GlobalStore {
     if (path.length === 0) return this.currentChanges;
     if (isString(path)) return this.state.get(path);
     if (isArray(path)) {
-      if (path.length === 0) return this.currentChanges;
       let res: unknown = this.state.get(path[0]);
       for (let i = 1; i < path.length; i++) {
         if (isMergeable(res)) res = (res as { [key: string]: unknown })[path[i]];
