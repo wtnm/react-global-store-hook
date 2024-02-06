@@ -1,6 +1,6 @@
 {
   "name": "react-global-store-hook",
-  "version": "0.13.1",
+  "version": "1.0.0",
   "description": "Global store for react with only hooks",
   "main": "dist/index.js",
   "scripts": {
@@ -24,20 +24,34 @@
   },
   "homepage": "https://github.com/wtnm/react-global-store-hook#readme",
   "dependencies": {
-    "is-fns": "^1.2.0"
+    "is-mergeable-object": "^1.1.1",
+    "is-promise": "^4.0.0",
+    "lodash": "^4.17.21",
+    "react-merge": "1.1.1"
   },
   "peerDependencies": {
-    "react": "^16.8.6"
+    "react": "^16.14.0 || ^17.0.2 ||  ^18.2.0"
   },
   "devDependencies": {
-    "chai": "^4.3.4",
-    "jsdom": "^16.7.0",
+    "@types/lodash": "^4.14.202",
+    "@types/node": "^20.11.3",
+    "@types/react": "^18.2.53",
+    "@typescript-eslint/eslint-plugin": "^6.16.0",
+    "@typescript-eslint/parser": "^6.16.0",
+    "chai": "^4.3.10",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-import-resolver-alias": "^1.1.2",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-prettier": "^5.1.2",
+    "eslint-plugin-react": "^7.33.2",
+    "jsdom": "^23.0.1",
     "jsdom-global": "^3.0.2",
-    "mocha": "^9.0.3",
-    "react": "^16.14.0",
-    "react-dom": "^16.14.0",
+    "mocha": "^10.2.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "sleep-promise": "^9.1.0",
-    "ts-mocha": "^8.0.0",
-    "typescript": "^4.3.5"
+    "ts-mocha": "^10.0.0",
+    "typescript": "^5.3.3"
   }
 }

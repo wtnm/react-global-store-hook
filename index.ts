@@ -1,109 +1,156 @@
 import { useEffect, useRef, useState } from 'react';
-import { isEqual, isPromise, isFunction, isString, isObject, isArray, isMergeable, isUndefined } from 'is-fns';
+import isFunction from 'lodash/isFunction';
+import isArray from 'lodash/isArray';
+import isString from 'lodash/isString';
+import isEqual from 'lodash/isEqual';
+import isUndefined from 'lodash/isUndefined';
+import isMergeable from 'is-mergeable-object';
+import isPromise from 'is-promise';
+import { merge } from 'react-merge';
 
+type Subscriber = (value: any) => void;
+
+type Listener = {
+  paths: Array<string | string[]>;
+  subscriber: Subscriber;
+  previous?: any;
+  wrapFunctions: boolean;
+};
 export default class GlobalStore {
-  private readonly state: Map<string, any>
-  private listeners = {}
-  private subscribers: Set<Function> = new Set()
-  private notify: null | number = null;
+  private readonly state: Map<string, any>;
+  private listeners: { [key: string]: Set<Listener> } = {};
+  private subscribers: Set<Subscriber> = new Set();
+  private notify: null | ReturnType<typeof setTimeout> = null;
   private notified = new Map();
-  private currentChanges = [{}, {}]; // [nextStateParts, prevStateParts]
-  private previousChanges = [{}, {}];
+  // nextChanges is using to accumulate changes, and then notify listeners in one batch
+  private nextChanges: [{ [key: string]: any }, { [key: string]: any }] = [{}, {}]; // [nextValues, currentValues]
+  private currentChanges: [{ [key: string]: any }, { [key: string]: any }] = [{}, {}];
 
-  constructor(initialState: { [key: string]: any } = {}) {this.state = new Map(Object.entries(initialState))}
+  constructor(initialState: { [key: string]: any } = {}) {
+    this.state = new Map(Object.entries(initialState));
+  }
 
   private notifyListeners = () => {
     this.notify = null;
-    this.previousChanges = this.currentChanges;
-    this.currentChanges = [{}, {}];
-    Object.keys(this.previousChanges[0]).forEach(key => {
+    this.currentChanges = this.nextChanges;
+    this.nextChanges = [{}, {}];
+    Object.keys(this.currentChanges[0]).forEach((key) => {
       if (this.listeners[key])
         this.listeners[key].forEach((listener) => {
-          const { req, subscriber, previous, wrapFunctions } = listener;
+          const { paths, subscriber, previous, wrapFunctions } = listener;
           if (!this.notified.get(subscriber)) {
-            let result = this.makeStateParts(req);
+            const result = this.getResult(paths);
             if (!isEqual(previous, result)) {
-              listener.previous = result
-              subscriber((wrapFunctions && isFunction(result)) ? () => result : result);
+              listener.previous = result;
+              subscriber(wrapFunctions && isFunction(result) ? () => result : result);
             }
             this.notified.set(subscriber, true);
           }
         });
-    })
-    this.subscribers.forEach(subscriber => subscriber(this.previousChanges))
+    });
+    this.subscribers.forEach((subscriber) => subscriber(this.currentChanges));
     this.notified = new Map();
-  }
+  };
 
-  private setStateAndNotifier = (key, value) => {
+  private setStateAndNotify = (key: string, value: any) => {
     if (Object.is(this.state.get(key), value)) return;
-    if (!this.currentChanges[1].hasOwnProperty(key)) this.currentChanges[1][key] = this.state.get(key);
-    this.currentChanges[0][key] = value;
-    if (isUndefined(value)) {this.state.delete(key)} else {this.state.set(key, value)}
+    if (!(key in this.nextChanges[1])) this.nextChanges[1][key] = this.state.get(key);
+    this.nextChanges[0][key] = value;
+    if (isUndefined(value)) {
+      this.state.delete(key);
+    } else {
+      this.state.set(key, value);
+    }
     if (!this.notify) this.notify = setTimeout(this.notifyListeners, 0); // execute on the next tick
+  };
+
+  private getStoreKey = (v: string | string[]) => (isArray(v) ? v[0] : v);
+
+  private useManageSubscriptionOrStoreChange = (
+    paths: Array<string | string[]>,
+    componentValue: any,
+  ): [Array<string | string[]>, any] => {
+    const { current: self }: { current: { paths: Array<string | string[]>; [key: string]: unknown } } = useRef({
+      paths,
+    });
+    if (!isEqual(paths, self.path) || self.state !== this.state) {
+      // new subscription were made or different store is using
+      self.state = this.state;
+      self.path = paths;
+      self.componentValue = componentValue; // save value from component to check
+      self.storeValue = this.getResult(paths); // get value from store
+      return [self.paths, self.storeValue];
+    } else if ('componentValue' in self && self.componentValue === componentValue) {
+      if (this.getResult(paths) !== componentValue)
+        // value updated in store, but not updated in component, cause listener is not called yet
+        return [self.paths, self.storeValue];
+    } // subscription or store changed and value updated both in store and component
+    delete self.componentValue;
+    return [self.paths, componentValue];
+  };
+
+  private _subscribe = (paths: false | Array<string | string[]>, subscriber: Subscriber, wrapFunctions = false) => {
+    if (isArray(paths) && !paths.length)
+      return this.subscribers.add(subscriber) && (() => this.subscribers.delete(subscriber));
+    if (!paths) return;
+    const subsObject: Listener = { paths, subscriber, wrapFunctions };
+    const subsKeys: string[] = paths.map((path) => {
+      const key = this.getStoreKey(path);
+      if (!this.listeners[key]) this.listeners[key] = new Set();
+      this.listeners[key].add(subsObject);
+      return key;
+    });
+
+    return () => {
+      subsKeys.forEach((key) => {
+        this.listeners[key].delete(subsObject);
+      });
+    };
+  };
+
+  private getResult(paths: Array<string | string[]>) {
+    const result = paths.map((path) => this.get(path));
+    return result.length <= 1 ? result[0] : result;
   }
 
-  private getStoreKey = (v) => isArray(v) ? v[0] : v;
+  useSubscribe = (...paths: Array<string | string[]>) => {
+    // eslint-disable-next-line prefer-const
+    let [value, setValue] = useState(this.getResult(paths));
+    [paths, value] = this.useManageSubscriptionOrStoreChange(paths, value);
+    useEffect(() => this._subscribe(paths, setValue, true), [paths, this.state]);
+    return value;
+  };
 
-  private getValue = (keys) => {
-    if (isString(keys)) return this.state.get(keys);
-    if (isArray(keys)) {
-      if (keys.length === 0) return this.previousChanges;
-      let res: any = this.state.get(keys[0]);
-      for (let i = 1; i < keys.length; i++) {
-        if (isMergeable(res)) res = res[keys[i]];
+  set = (path: string | string[], value: any) => {
+    if (isFunction(value)) value = value(this.get(path));
+    const [key, ...restPath] = isArray(path) ? path : [path];
+    const currentValue = this.get(key);
+    if (isPromise(value))
+      (value as Promise<unknown>)
+        .then((promiseValue) =>
+          this.setStateAndNotify(key, merge(currentValue, promiseValue, { path: restPath, replace: true })),
+        )
+        .catch((e) => {
+          throw new Error(e);
+        });
+    else this.setStateAndNotify(key, merge(currentValue, value, { path: restPath, replace: true }));
+  };
+
+  get = (path: string | string[]) => {
+    if (path.length === 0) return this.currentChanges;
+    if (isString(path)) return this.state.get(path);
+    if (isArray(path)) {
+      if (path.length === 0) return this.currentChanges;
+      let res: unknown = this.state.get(path[0]);
+      for (let i = 1; i < path.length; i++) {
+        if (isMergeable(res)) res = (res as { [key: string]: unknown })[path[i]];
         else return undefined;
       }
       return res;
     }
-  }
-
-  private makeStateParts = (req) => (isString(req) || isArray(req)) ? this.getValue(req) : (!req ? req :
-    Object.keys(req).reduce((r, prop) => (r[prop] = this.getValue(req[prop])) && r || r, {}));
-
-  private usePrevReqAndState = (req, partState) => {
-    const { current } = useRef({});
-    if (!isEqual(req, current.req, { deep: true }) || current.state !== this.state) { // new subscription were made
-      current.state = this.state;
-      current.req = req;
-      current.check = partState;   // save old partState to check
-      current.result = this.makeStateParts(req);
-      return [current.req, current.result]
-    } else if (current.hasOwnProperty('check') && current.check === partState) { // partState not yet updated
-      if (isObject(req) || this.makeStateParts(req) !== partState) return [current.req, current.result];
-    }
-    delete current.check;  // subscription made and partState updated
-    return [req, partState]
-  }
-
-  useSubscribe = (req: false | string | string[] | { [key: string]: string | string[] }) => {
-    let [partState, setPartState] = useState(this.makeStateParts(req));
-    [req, partState] = this.usePrevReqAndState(req, partState);
-    useEffect(() => this._subscribe(req, setPartState, true), [req, this.state]);
-    return partState
   };
 
-  private _subscribe = (req, subscriber, wrapFunctions = false) => {
-    if (isArray(req) && !req.length) return this.subscribers.add(subscriber) && (() => this.subscribers.delete(subscriber))
-    if (req === true || !req && req !== "") return req;
-    const subsObject = { req, subscriber, wrapFunctions };
-    const props = isObject(req) ? Object.keys(req) : [""];
-    props.forEach(prop => {
-      const key = this.getStoreKey(isObject(req) ? req[prop] : req);
-      if (!this.listeners[key]) this.listeners[key] = new Set();
-      this.listeners[key].add(subsObject);
-    });
-    return () => props.forEach(p => this.listeners[this.getStoreKey(isObject(req) ? req[p] : req)].delete(subsObject));
-  };
-
-  set = (key, value) => {
-    if (isFunction(value)) value = value(this.state.get(key));
-    if (isPromise(value)) value.then((val) => this.setStateAndNotifier(key, val)).catch((e) => {throw new Error(e)})
-    else this.setStateAndNotifier(key, value)
-  }
-
-  subscribe = (req, subscriber) => this._subscribe(req, subscriber);
-  
-  get = (req) => this.makeStateParts(req)
-
-  keys = () => this.state.keys()
+  subscribe = (path: string | string[], subscriber: Subscriber) =>
+    this._subscribe(path.length ? [path] : [], subscriber);
+  keys = () => this.state.keys();
 }
