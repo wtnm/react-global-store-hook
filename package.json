@@ -1,6 +1,6 @@
 {
   "name": "react-global-store-hook",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Global store for react with only hooks",
   "main": "dist/index.js",
   "scripts": {

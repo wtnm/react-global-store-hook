@@ -71,13 +71,17 @@ export default class GlobalStore {
     paths: Array<string | string[]>,
     componentValue: any,
   ): [Array<string | string[]>, any] => {
-    const { current: self }: { current: { paths: Array<string | string[]>; [key: string]: unknown } } = useRef({
+    const {
+      current: self,
+    }: {
+      current: { paths: Array<string | string[]>; state?: Map<string, any>; componentValue?: any; storeValue?: any };
+    } = useRef({
       paths,
     });
-    if (!isEqual(paths, self.path) || self.state !== this.state) {
+    if (!isEqual(paths, self.paths) || self.state !== this.state) {
       // new subscription were made or different store is using
       self.state = this.state;
-      self.path = paths;
+      self.paths = paths;
       self.componentValue = componentValue; // save value from component to check
       self.storeValue = this.getResult(paths); // get value from store
       return [self.paths, self.storeValue];
@@ -115,11 +119,10 @@ export default class GlobalStore {
   }
 
   useSubscribe = (...paths: Array<string | string[]>) => {
-    // eslint-disable-next-line prefer-const
-    let [value, setValue] = useState(this.getResult(paths));
-    [paths, value] = this.useManageSubscriptionOrStoreChange(paths, value);
-    useEffect(() => this._subscribe(paths, setValue, true), [paths, this.state]);
-    return value;
+    const [componentValue, setComponentValue] = useState(this.getResult(paths));
+    const [memoizedPaths, storeValue] = this.useManageSubscriptionOrStoreChange(paths, componentValue);
+    useEffect(() => this._subscribe(memoizedPaths, setComponentValue, true), [memoizedPaths, this.state]);
+    return storeValue;
   };
 
   set = (path: string | string[], value: any) => {
