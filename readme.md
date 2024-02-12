@@ -19,7 +19,7 @@ npm install --save react-global-store-hook
 
 
 ## Quick example
-```
+```jsx
 import GlobalStore from 'react-global-store-hook';
 
 const store = new GlobalStore({ count: 0 });
@@ -38,7 +38,7 @@ const unsubscribe = store.subsctibe('count', (value) => console.log(value));
 
 ## Documentation
 ### GlobalStore(initialState: { [key: string]: any } = {})
-```
+```jsx
 import GlobalStore from 'react-global-store-hook';
 const store = new GlobalStore();
 ```
@@ -56,7 +56,7 @@ If one argument passed returns single value in `path = paths[0]`.
 Otherwise return tuple of values in each `path of paths`
 
 Example:
-```
+```jsx
 const store = new GlobalStore({ one: 1, two: { deep: 2 }, three: 3 });
 
 export function Example() {
