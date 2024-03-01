@@ -14,7 +14,7 @@ type Listener = {
   paths: Array<string | string[]>;
   subscriber: Subscriber;
   previous?: any;
-  wrapFunctions: boolean;
+  isSubscriberReactHook: boolean;
 };
 
 export default class GlobalStore {
@@ -38,12 +38,12 @@ export default class GlobalStore {
     Object.keys(this.currentChanges.current).forEach((key) => {
       if (this.listeners[key])
         this.listeners[key].forEach((listener) => {
-          const { paths, subscriber, previous, wrapFunctions } = listener;
+          const { paths, subscriber, previous, isSubscriberReactHook } = listener;
           if (!this.notified.get(subscriber)) {
             const result = this.getResult(paths);
             if (!isEqual(previous, result)) {
               listener.previous = result;
-              subscriber(wrapFunctions && isFunction(result) ? () => result : result);
+              subscriber(isSubscriberReactHook && isFunction(result) ? () => result : result);
             }
             this.notified.set(subscriber, true);
           }
@@ -71,17 +71,13 @@ export default class GlobalStore {
     paths: Array<string | string[]>,
     componentValue: any,
   ): [Array<string | string[]>, any] => {
-    const {
-      current: self,
-    }: {
-      current: { paths: Array<string | string[]>; state?: Map<string, any>; componentValue?: any; storeValue?: any };
-    } = useRef({
+    const { current: self }: { current: { paths: Array<string | string[]>; [key: string]: unknown } } = useRef({
       paths,
     });
-    if (!isEqual(paths, self.paths) || self.state !== this.state) {
+    if (!isEqual(paths, self.path) || self.state !== this.state) {
       // new subscription were made or different store is using
       self.state = this.state;
-      self.paths = paths;
+      self.path = paths;
       self.componentValue = componentValue; // save value from component to check
       self.storeValue = this.getResult(paths); // get value from store
       return [self.paths, self.storeValue];
@@ -94,18 +90,22 @@ export default class GlobalStore {
     return [self.paths, componentValue];
   };
 
-  private _subscribe = (paths: false | Array<string | string[]>, subscriber: Subscriber, wrapFunctions = false) => {
+  private _subscribe = (
+    paths: false | Array<string | string[]>,
+    subscriber: Subscriber,
+    isSubscriberReactHook = false,
+  ) => {
     if (isArray(paths) && !paths.length)
       return this.subscribers.add(subscriber) && (() => this.subscribers.delete(subscriber));
     if (!paths) return;
-    const subsObject: Listener = { paths, subscriber, wrapFunctions };
+    const subsObject: Listener = { paths, subscriber, isSubscriberReactHook };
     const subsKeys: string[] = paths.map((path) => {
       const key = this.getStoreKey(path);
       if (!this.listeners[key]) this.listeners[key] = new Set();
       this.listeners[key].add(subsObject);
       return key;
     });
-
+    if (isSubscriberReactHook) subscriber(this.getResult(paths));
     return () => {
       subsKeys.forEach((key) => {
         this.listeners[key].delete(subsObject);
@@ -119,10 +119,11 @@ export default class GlobalStore {
   }
 
   useSubscribe = (...paths: Array<string | string[]>) => {
-    const [componentValue, setComponentValue] = useState(this.getResult(paths));
-    const [memoizedPaths, storeValue] = this.useManageSubscriptionOrStoreChange(paths, componentValue);
-    useEffect(() => this._subscribe(memoizedPaths, setComponentValue, true), [memoizedPaths, this.state]);
-    return storeValue;
+    // eslint-disable-next-line prefer-const
+    let [value, setValue] = useState(this.getResult(paths));
+    [paths, value] = this.useManageSubscriptionOrStoreChange(paths, value);
+    useEffect(() => this._subscribe(paths, setValue, true), [paths, this.state]);
+    return value;
   };
 
   set = (path: string | string[], value: any) => {
