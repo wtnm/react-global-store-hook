@@ -41,7 +41,10 @@ export default class GlobalStore {
           const { paths, subscriber, previous, isSubscriberReactHook } = listener;
           if (!this.notified.get(subscriber)) {
             const result = this.getResult(paths);
-            if (!isEqual(previous, result)) {
+            if (
+              !isEqual(previous, result) ||
+              (result === undefined && !Object.prototype.hasOwnProperty.call(listener, 'previous'))
+            ) {
               listener.previous = result;
               subscriber(isSubscriberReactHook && isFunction(result) ? () => result : result);
             }
@@ -74,10 +77,10 @@ export default class GlobalStore {
     const { current: self }: { current: { paths: Array<string | string[]>; [key: string]: unknown } } = useRef({
       paths,
     });
-    if (!isEqual(paths, self.path) || self.state !== this.state) {
+    if (!isEqual(paths, self.paths) || self.state !== this.state) {
       // new subscription were made or different store is using
       self.state = this.state;
-      self.path = paths;
+      self.paths = paths;
       self.componentValue = componentValue; // save value from component to check
       self.storeValue = this.getResult(paths); // get value from store
       return [self.paths, self.storeValue];
@@ -142,6 +145,7 @@ export default class GlobalStore {
   };
 
   get = (path: string | string[]) => {
+    if (path == null) return;
     if (path.length === 0) return this.currentChanges;
     if (isString(path)) return this.state.get(path);
     if (isArray(path)) {
@@ -158,3 +162,14 @@ export default class GlobalStore {
     this._subscribe(path.length ? [path] : [], subscriber);
   keys = () => this.state.keys();
 }
+
+// dummyStore для имитации вызовов хуков useSubscribe, нужно, если основной store доступен не сразу, с задержкой
+export const dummyStore = {
+  useSubscribe(...paths: Array<string | string[]>) {
+    const [value] = useState();
+    useRef({ paths });
+    useEffect(() => {}, [paths, this.state]);
+    return value;
+  },
+};
+dummyStore.useSubscribe = dummyStore.useSubscribe.bind(dummyStore);

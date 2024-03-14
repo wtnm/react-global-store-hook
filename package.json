@@ -1,6 +1,6 @@
 {
   "name": "react-global-store-hook",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Global store for react with only hooks",
   "main": "dist/index.js",
   "scripts": {
@@ -27,7 +27,7 @@
     "is-mergeable-object": "^1.1.1",
     "is-promise": "^4.0.0",
     "lodash": "^4.17.21",
-    "react-merge": "1.1.1"
+    "react-merge": "1.1.2"
   },
   "peerDependencies": {
     "react": "^16.14.0 || ^17.0.2 ||  ^18.2.0"
